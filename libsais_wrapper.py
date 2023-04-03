@@ -7,19 +7,22 @@
 # This Python wrapper module provides access to the libsais C library
 # functions for constructing suffix arrays, BWT, and LCP arrays. The primary
 # authors of the code are ChatGPT-4 and ChatGPT-3.5, AI language models by OpenAI.
-# Newton Winter provided the prompts, composition, and minor rearrangements.
+# Newton Winter provided the prompts, composition, testing, bugfixes and code rearrangements.
 # -----------------------------------------------------------------------------
 import ctypes
 import os
+
 from ctypes import c_int64, c_uint8, POINTER
+from ctypes.util import find_library
 
 # Load the shared library (.dll for Windows)
-libsais = ctypes.CDLL("sais-2.7.1.dll")
-
+libsais = ctypes.CDLL("./sais64-2.7.1.dll")
+    
 # Set the default number of threads for OMP functions
 _DEFAULT_THREADS = 4
 # Enable or disable OMP functions
-_USE_OMP = True
+_USE_OMP = False
+#we need to test if the library is compiled with OMP first!
 
 __all__ = [
     "libsais64",
@@ -56,10 +59,10 @@ libsais64_lcp_omp: Constructs the longest common prefix array (LCP) of a given p
 libsais.libsais64.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64)]
 libsais.libsais64_bwt.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64)]
 libsais.libsais64_bwt_aux.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64)]
-libsais.libsais64_unbwt.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64]
-libsais.libsais64_unbwt_aux.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64]
+libsais.libsais64_unbwt.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int64]
+libsais.libsais64_unbwt_aux.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.POINTER(ctypes.c_int64)]
 libsais.libsais64_plcp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64]
-libsais.libsais64_lcp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64]
+libsais.libsais64_lcp.argtypes = [ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64]
 
 # Define the return types of the exported functions
 libsais.libsais64.restype = ctypes.c_int64
@@ -71,23 +74,27 @@ libsais.libsais64_plcp.restype = ctypes.c_int64
 libsais.libsais64_lcp.restype = ctypes.c_int64
 
 # OMP functions argtypes and restypes
-# Define the types of the arguments for the exported OMP functions
-libsais.libsais64_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int32]
-libsais.libsais64_bwt_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int32]
-libsais.libsais64_bwt_aux_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int32]
-libsais.libsais64_unbwt_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.c_int32]
-libsais.libsais64_unbwt_aux_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.c_int32]
-libsais.libsais64_plcp_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int32]
-libsais.libsais64_lcp_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int32]
 
-# Define the return types of the exported OMP functions
-libsais.libsais64_omp.restype = ctypes.c_int64
-libsais.libsais64_bwt_omp.restype = ctypes.c_int64
-libsais.libsais64_bwt_aux_omp.restype = ctypes.c_int64
-libsais.libsais64_unbwt_omp.restype = ctypes.c_int64
-libsais.libsais64_unbwt_aux_omp.restype = ctypes.c_int64
-libsais.libsais64_plcp_omp.restype = ctypes.c_int64
-libsais.libsais64_lcp_omp.restype = ctypes.c_int64
+if find_library("libsais64_omp") is not None:
+    _USE_OMP = True
+    
+    # Define the types of the arguments for the exported OMP functions
+    libsais.libsais64_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int32]
+    libsais.libsais64_bwt_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int32]
+    libsais.libsais64_bwt_aux_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int32]
+    libsais.libsais64_unbwt_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int32]
+    libsais.libsais64_unbwt_aux_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int32]
+    libsais.libsais64_plcp_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int32]
+    libsais.libsais64_lcp_omp.argtypes = [ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int32]
+
+    # Define the return types of the exported OMP functions
+    libsais.libsais64_omp.restype = ctypes.c_int64
+    libsais.libsais64_bwt_omp.restype = ctypes.c_int64
+    libsais.libsais64_bwt_aux_omp.restype = ctypes.c_int64
+    libsais.libsais64_unbwt_omp.restype = ctypes.c_int64
+    libsais.libsais64_unbwt_aux_omp.restype = ctypes.c_int64
+    libsais.libsais64_plcp_omp.restype = ctypes.c_int64
+    libsais.libsais64_lcp_omp.restype = ctypes.c_int64
 
 def libsais64(T, A, n, fs=0, freq=None, threads=_DEFAULT_THREADS):
     """
@@ -115,7 +122,7 @@ def libsais64(T, A, n, fs=0, freq=None, threads=_DEFAULT_THREADS):
     T_ctypes = (ctypes.c_uint8 * n)(*T)
     A_ctypes = (ctypes.c_int64 * (n + fs))(*A)
     freq_ctypes = None if freq is None else (ctypes.c_int64 * 256)(*freq)
-
+    
     # Call the appropriate function from the C library based on _USE_OMP and the number of threads
     if _USE_OMP and threads > 1:
         result = libsais.libsais64_omp(T_ctypes, A_ctypes, n, fs, freq_ctypes, threads)
@@ -123,7 +130,7 @@ def libsais64(T, A, n, fs=0, freq=None, threads=_DEFAULT_THREADS):
         result = libsais.libsais64(T_ctypes, A_ctypes, n, fs, freq_ctypes)
 
     # Convert the ctypes arrays back to Python lists
-    A = list(A_ctypes)
+    A = [ctypes.c_int64(a).value for a in A_ctypes]
     freq = None if freq is None else list(freq_ctypes)
 
     return result, A, freq
@@ -157,7 +164,7 @@ def libsais64_bwt(T, U, A, n, fs=0, freq=None, threads=_DEFAULT_THREADS):
     U_ctypes = (ctypes.c_uint8 * n)(*U)
     A_ctypes = (ctypes.c_int64 * (n + fs))(*A)
     freq_ctypes = None if freq is None else (ctypes.c_int64 * 256)(*freq)
-
+ 
     # Call the appropriate function from the C library based on _USE_OMP and the number of threads
     if _USE_OMP and threads > 1:
         result = libsais.libsais64_bwt_omp(T_ctypes, U_ctypes, A_ctypes, n, fs, freq_ctypes, threads)
@@ -166,11 +173,11 @@ def libsais64_bwt(T, U, A, n, fs=0, freq=None, threads=_DEFAULT_THREADS):
 
     # Convert the ctypes arrays back to Python lists
     U = list(U_ctypes)
-    A = list(A_ctypes)
+    A = [ctypes.c_int64(a).value for a in A_ctypes]
     freq = None if freq is None else list(freq_ctypes)
 
     return result, U, A, freq
-	
+    
 def libsais64_bwt_aux(T, U, A, n, fs=0, freq=None, threads=_DEFAULT_THREADS):
     """
     Description:
@@ -197,22 +204,22 @@ def libsais64_bwt_aux(T, U, A, n, fs=0, freq=None, threads=_DEFAULT_THREADS):
     T_ctypes = (ctypes.c_uint8 * n)(*T)
     U_ctypes = (ctypes.c_uint8 * n)(*U)
     A_ctypes = (ctypes.c_int64 * (n + fs))(*A)
-	freq_ctypes = None if freq is None else (ctypes.c_int64 * 256)(*freq)
-	
-	# Call the appropriate function from the C library based on _USE_OMP and the number of threads
+    freq_ctypes = None if freq is None else (ctypes.c_int64 * 256)(*freq)
+    
+    # Call the appropriate function from the C library based on _USE_OMP and the number of threads
     if _USE_OMP and threads > 1:
         result = libsais.libsais64_bwt_aux_omp(T_ctypes, U_ctypes, A_ctypes, n, fs, freq_ctypes, threads)
     else:
         result = libsais.libsais64_bwt_aux(T_ctypes, U_ctypes, A_ctypes, n, fs, freq_ctypes)
 
-	# Convert the ctypes arrays back to Python lists
-	U = list(U_ctypes)
-	A = list(A_ctypes)
-	freq = None if freq is None else list(freq_ctypes)
+    # Convert the ctypes arrays back to Python lists
+    U = list(U_ctypes)
+    A = [ctypes.c_int64(a).value for a in A_ctypes]
+    freq = None if freq is None else list(freq_ctypes)
 
-	return result, U, A, freq
-	
-def libsais64_unbwt(T, U, A, n, fs, freq=None, threads=_DEFAULT_THREADS):
+    return result, U, A, freq
+    
+def libsais64_unbwt(T, U, A, n, fs=0, freq=None, threads=_DEFAULT_THREADS):
     """
     Description:
         The libsais64_unbwt function is a Python wrapper for the libsais64_unbwt and libsais64_unbwt_omp C functions. 
@@ -220,11 +227,11 @@ def libsais64_unbwt(T, U, A, n, fs, freq=None, threads=_DEFAULT_THREADS):
         It also supports frequency counting of the input characters and allows for OpenMP parallelization based on the specified number of threads.
 
     Arguments:
-        T (list of int64): The input string, represented as a list of 64-bit signed integers.
-        U (list of int64): The initial iBWT, represented as a list of 64-bit signed integers. The length of this list must be n.
+        T (list of int8): The input string, represented as a list of 64-bit signed integers.
+        U (list of int8): The initial iBWT, represented as a list of 64-bit signed integers. The length of this list must be n.
         A (list of int64): The initial auxiliary array, represented as a list of 64-bit signed integers. The length of this list must be n + fs.
         n (int64): The length of the input string T.
-        fs (int64): The extra allocated space for the auxiliary array. The auxiliary array will have a length of n + fs.
+        fs (int64, optional, default=0): The extra allocated space for the auxiliary array. The auxiliary array will have a length of n + fs.
         freq (list of int64, optional, default=None): A list of 64-bit signed integers of length 256 to store the frequency of each character in the input string T. If None, the function will not compute the frequency.
         threads (int, optional, default=_DEFAULT_THREADS): The number of threads to be used for OpenMP parallelization. 
         The function will use the libsais64_unbwt_omp function if _USE_OMP is True and threads > 1. Otherwise, it will use the single-threaded libsais64_unbwt function.
@@ -236,16 +243,16 @@ def libsais64_unbwt(T, U, A, n, fs, freq=None, threads=_DEFAULT_THREADS):
     """
     
     # Convert Python lists to ctypes arrays
-    T_ctypes = (ctypes.c_int64 * n)(*T)
-    U_ctypes = (ctypes.c_int64 * n)(*U)
+    T_ctypes = (ctypes.c_uint8 * n)(*T)
+    U_ctypes = (ctypes.c_uint8 * n)(*U)
     A_ctypes = (ctypes.c_int64 * (n + fs))(*A)
     freq_ctypes = None if freq is None else (ctypes.c_int64 * 256)(*freq)
 
     # Call the appropriate function from the C library based on _USE_OMP and the number of threads
     if _USE_OMP and threads > 1:
-        result = libsais.libsais64_unbwt_omp(T_ctypes, U_ctypes, A_ctypes, n, fs, threads)
+        result = libsais.libsais64_unbwt_omp(T_ctypes, U_ctypes, A_ctypes, n, freq_ctypes, fs, threads)
     else:
-        result = libsais.libsais64_unbwt(T_ctypes, U_ctypes, A_ctypes, n, fs, freq_ctypes)
+        result = libsais.libsais64_unbwt(T_ctypes, U_ctypes, A_ctypes, n, freq_ctypes, fs)
 
 
     # Convert the ctypes arrays back to Python lists
@@ -254,39 +261,42 @@ def libsais64_unbwt(T, U, A, n, fs, freq=None, threads=_DEFAULT_THREADS):
 
     return result, T, freq
 
-def libsais64_unbwt_aux(T, U, A, n, fs, freq=None, threads=_DEFAULT_THREADS):
+def libsais64_unbwt_aux(T, U, A, n, r, I, fs=0, freq=None, threads=_DEFAULT_THREADS):
     """
     Description:
         The libsais64_unbwt_aux function is a Python wrapper for the libsais64_unbwt_aux and libsais64_unbwt_aux_omp C functions. 
-        It computes the inverse Burrows-Wheeler Transform (iBWT) U of a given input string T of length n and the corresponding auxiliary array A, with a specified fs extra allocated space for the auxiliary array. 
+        It computes the inverse Burrows-Wheeler Transform (iBWT) U of a given input string T of length n and the corresponding auxiliary array A, with a specified r sampling rate for auxiliary indexes. 
         This function also reconstructs the input string T from the computed iBWT U. It supports frequency counting of the input characters and allows for OpenMP parallelization based on the specified number of threads.
 
     Arguments:
-        T (list of int64): The input string, represented as a list of 64-bit signed integers.
-        U (list of int64): The initial iBWT, represented as a list of 64-bit signed integers. The length of this list must be n.
-        A (list of int64): The initial auxiliary array, represented as a list of 64-bit signed integers. The length of this list must be n + fs.
+        T (list of int8): The input string, represented as a list of 8-bit unsigned integers.
+        U (list of int8): The initial iBWT, represented as a list of 8-bit unsigned integers. The length of this list must be n.
+        A (list of int64): The initial auxiliary array, represented as a list of 64-bit signed integers. The length of this list must be n + 1.
         n (int64): The length of the input string T.
-        fs (int64): The extra allocated space for the auxiliary array. The auxiliary array will have a length of n + fs.
+        r (int64): The sampling rate for auxiliary indexes (must be a power of 2).
+        I (list of int64): The input auxiliary indexes, represented as a list of 64-bit signed integers. The length of this list must be (n - 1) // r.
+        fs (int64, optional, default=0): The extra allocated space for the auxiliary array. The auxiliary array will have a length of n + fs.
         freq (list of int64, optional, default=None): A list of 64-bit signed integers of length 256 to store the frequency of each character in the input string T. If None, the function will not compute the frequency.
         threads (int, optional, default=_DEFAULT_THREADS): The number of threads to be used for OpenMP parallelization. 
         The function will use the libsais64_unbwt_aux_omp function if _USE_OMP is True and threads > 1. Otherwise, it will use the single-threaded libsais64_unbwt_aux function.
-        
+
     Returns:
         result (int): The return value from the underlying libsais64_unbwt_aux or libsais64_unbwt_aux_omp C function. A value of 0 indicates success.
-        T (list of int64): The reconstructed input string from the computed iBWT, represented as a list of 64-bit signed integers. The length of this list will be n.
+        U (list of int8): The computed iBWT, represented as a list of 8-bit unsigned integers. The length of this list will be n.
         freq (list of int64 or None): A list of 64-bit signed integers of length 256 with the frequency of each character in the input string T, or None if the freq argument was None.
     """
     # Convert Python lists to ctypes arrays
-    T_ctypes = (ctypes.c_int64 * n)(*T)
-    U_ctypes = (ctypes.c_int64 * n)(*U)
+    T_ctypes = (ctypes.c_uint8 * n)(*T)
+    U_ctypes = (ctypes.c_uint8 * n)(*U)
     A_ctypes = (ctypes.c_int64 * (n + fs))(*A)
     freq_ctypes = None if freq is None else (ctypes.c_int64 * 256)(*freq)
+    I_ctypes = (ctypes.c_int64 * len(I))(*I)
 
-    # Call the appropriate function from the C library based on _USE_OMP and the number of threads
+      # Call the appropriate function from the C library based on _USE_OMP and the number of threads
     if _USE_OMP and threads > 1:
-        result = libsais.libsais64_unbwt_aux_omp(T_ctypes, U_ctypes, A_ctypes, freq_ctypes, n, fs, threads)
+        result = libsais.libsais64_unbwt_aux_omp(T_ctypes, U_ctypes, A_ctypes, n, freq_ctypes, r, I_ctypes, threads)
     else:
-        result = libsais.libsais64_unbwt_aux(T_ctypes, U_ctypes, A_ctypes, n, fs, freq_ctypes)
+        result = libsais.libsais64_unbwt_aux(T_ctypes, U_ctypes, A_ctypes, n, freq_ctypes, r, I_ctypes)
 
     # Convert the ctypes arrays back to Python lists
     T = list(T_ctypes)
@@ -302,7 +312,7 @@ def libsais64_plcp(T, A, LCP, n, threads=_DEFAULT_THREADS):
         This function allows for OpenMP parallelization based on the specified number of threads.
         
     Arguments:
-        T (list of int64): The input string, represented as a list of 64-bit signed integers.
+        T (list of uint8): The input string, represented as a list of 64-bit signed integers.
         A (list of int64): The suffix array of the input string T, represented as a list of 64-bit signed integers. The length of this list must be n.
         LCP (list of int64): The initial PLCP array, represented as a list of 64-bit signed integers. The length of this list must be n.
         n (int64): The length of the input string T.
@@ -314,9 +324,14 @@ def libsais64_plcp(T, A, LCP, n, threads=_DEFAULT_THREADS):
         LCP (list of int64): The computed PLCP array, represented as a list of 64-bit signed integers. The length of this list will be n.
     """
     # Convert Python lists to ctypes arrays
-    T_ctypes = (ctypes.c_int64 * n)(*T)
+    T_ctypes = (ctypes.c_uint8 * n)(*T)
     A_ctypes = (ctypes.c_int64 * n)(*A)
     LCP_ctypes = (ctypes.c_int64 * n)(*LCP)
+
+    # Print ctypes arrays
+    #print("T_ctypes:", [T_ctypes[i] for i in range(n)])
+    #print("A_ctypes:", [A_ctypes[i] for i in range(n)])
+    #print("LCP_ctypes:", [LCP_ctypes[i] for i in range(n)])
 
     # Call the appropriate function from the C library based on _USE_OMP and the number of threads
     if _USE_OMP and threads > 1:
@@ -353,6 +368,11 @@ def libsais64_lcp(T, A, LCP, n, threads=_DEFAULT_THREADS):
     A_ctypes = (ctypes.c_int64 * n)(*A)
     LCP_ctypes = (ctypes.c_int64 * n)(*LCP)
 
+    # Print ctypes arrays
+    #print("T_ctypes:", [T_ctypes[i] for i in range(n)])
+    #print("A_ctypes:", [A_ctypes[i] for i in range(n)])
+    #print("LCP_ctypes:", [LCP_ctypes[i] for i in range(n)])
+
     # Call the appropriate function from the C library based on _USE_OMP and the number of threads
     if _USE_OMP and threads > 1:
         result = libsais.libsais64_lcp_omp(T_ctypes, A_ctypes, LCP_ctypes, n, threads)
@@ -364,5 +384,5 @@ def libsais64_lcp(T, A, LCP, n, threads=_DEFAULT_THREADS):
 
     return result, LCP
 
-	
-	
+    
+    
