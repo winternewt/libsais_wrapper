@@ -2,13 +2,12 @@
 # -----------------------------------------------------------------------------
 # libsais_wrapper.py
 #
-# Authors: ChatGPT-4 and ChatGPT-3.5 by OpenAI
-# Contributor: Newton Winter
+# Authors: ChatGPT-4 and ChatGPT-3.5 by OpenAI, Newton Winter
 #
 # This Python wrapper module provides access to the libsais C library
 # functions for constructing suffix arrays, BWT, and LCP arrays. The primary
 # authors of the code are ChatGPT-4 and ChatGPT-3.5, AI language models by OpenAI.
-# Newton Winter provided the prompts, composition, testing, bugfixes and code rearrangements.
+# Newton Winter provided the prompts, composition, testing, bugfixes, code rearrangements and overall logic.
 # -----------------------------------------------------------------------------
 
 import ctypes
@@ -18,22 +17,34 @@ from ctypes import c_int64, c_uint8, POINTER
 from ctypes.util import find_library
 
 if sys.platform.startswith('win'):  # Windows
-    libname = "./libsais-2.7.1.dll"
+    libname = "libsais-2.7.1.dll"
 elif sys.platform.startswith('darwin'):  # macOS
-    libname = "./libsais.2.dylib"
+    libname = "libsais.2.dylib"
 elif sys.platform.startswith('linux'):  # Linux
-    libname = "./libsais.so.2"
+    libname = "libsais.so.2"
 else:
     print("OS not supported")
     sys.exit(1)
 
+# Check if the library is in PATH directories
+found_in_path = False
+for path in os.environ["PATH"].split(os.pathsep):
+    if os.path.exists(os.path.join(path, libname)):
+        libname = os.path.join(path, libname)
+        found_in_path = True
+        break
+
+# If the library is not in PATH, look for it in the current directory
+if not found_in_path:
+    libname = os.path.join(os.getcwd(), libname)
+
 # Load the shared library
 libsais = ctypes.CDLL(libname)
-    
+      
 # Set the default number of threads for OMP functions
 _DEFAULT_THREADS = 4
 # Enable or disable OMP functions
-_USE_OMP = False
+_USE_OMP = True
 #we need to test if the library is compiled with OMP first!
 
 __all__ = [
@@ -87,9 +98,7 @@ libsais.libsais64_lcp.restype = ctypes.c_int64
 
 # OMP functions argtypes and restypes
 
-if find_library("libsais64_omp") is not None:
-    _USE_OMP = True
-    
+if _USE_OMP and hasattr(libsais, "libsais64_omp"): 
     # Define the types of the arguments for the exported OMP functions
     libsais.libsais64_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int32]
     libsais.libsais64_bwt_omp.argtypes = [ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_uint8), ctypes.POINTER(ctypes.c_int64), ctypes.c_int64, ctypes.c_int64, ctypes.POINTER(ctypes.c_int64), ctypes.c_int32]
@@ -107,6 +116,10 @@ if find_library("libsais64_omp") is not None:
     libsais.libsais64_unbwt_aux_omp.restype = ctypes.c_int64
     libsais.libsais64_plcp_omp.restype = ctypes.c_int64
     libsais.libsais64_lcp_omp.restype = ctypes.c_int64
+else:
+    #The library does not contain the exported OMP functions, turn off the use:
+    print("WARNING: OpenMP exports not found in", libname, "Using single-thread. Re-compile the library with OpenMP or disable _USE_OMP in libsais_wrapper.py");
+    _USE_OMP = False
 
 def libsais64(T, A, n, fs=0, freq=None, threads=_DEFAULT_THREADS):
     """
