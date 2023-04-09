@@ -11,12 +11,22 @@
 # -----------------------------------------------------------------------------
 import ctypes
 import os
-
+import sys
 from ctypes import c_int64, c_uint8, POINTER
 from ctypes.util import find_library
 
-# Load the shared library (.dll for Windows)
-libsais = ctypes.CDLL("./sais64-2.7.1.dll")
+if sys.platform.startswith('win'):  # Windows
+    libname = "sais64-2.7.1.dll"
+elif sys.platform.startswith('darwin'):  # macOS
+    libname = "libsais64-2.7.1.dylib"
+elif sys.platform.startswith('linux'):  # Linux
+    libname = "libsais64.so.2"
+else:
+    print("OS not supported")
+    sys.exit(1)
+
+# Load the shared library
+libsais = ctypes.CDLL(libname)
     
 # Set the default number of threads for OMP functions
 _DEFAULT_THREADS = 4

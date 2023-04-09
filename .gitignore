@@ -1,5 +1,8 @@
 sais-2.7.1.dll
-sais-2.7.1.so
-sais-2.7.1.dylib
+libsais-2.7.1.so.2
+libsais-2.7.1.dylib
+sais64-2.7.1.dll
+libsais64-2.7.1.so.2
+libsais64-2.7.1.dylib
 __pycache__
 __pycache__/*
