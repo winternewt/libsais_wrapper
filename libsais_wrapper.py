@@ -1,3 +1,4 @@
+#!/bin/python3
 # -----------------------------------------------------------------------------
 # libsais_wrapper.py
 #
@@ -9,6 +10,7 @@
 # authors of the code are ChatGPT-4 and ChatGPT-3.5, AI language models by OpenAI.
 # Newton Winter provided the prompts, composition, testing, bugfixes and code rearrangements.
 # -----------------------------------------------------------------------------
+
 import ctypes
 import os
 import sys
@@ -16,11 +18,11 @@ from ctypes import c_int64, c_uint8, POINTER
 from ctypes.util import find_library
 
 if sys.platform.startswith('win'):  # Windows
-    libname = "sais64-2.7.1.dll"
+    libname = "./libsais-2.7.1.dll"
 elif sys.platform.startswith('darwin'):  # macOS
-    libname = "libsais64-2.7.1.dylib"
+    libname = "./libsais.2.dylib"
 elif sys.platform.startswith('linux'):  # Linux
-    libname = "libsais64.so.2"
+    libname = "./libsais.so.2"
 else:
     print("OS not supported")
     sys.exit(1)
@@ -394,5 +396,7 @@ def libsais64_lcp(T, A, LCP, n, threads=_DEFAULT_THREADS):
 
     return result, LCP
 
-    
-    
+# Check if this module is being run as the main program
+if __name__ == '__main__':
+    print("This is a service module, not a program.")
+
